@@ -12,15 +12,17 @@
 <style>
   :root{
     --navy-deep:#081b34;
+    --navy-solid:#121b4d;
     --navy:#0e3760;
     --blue:#155a92;
+    --teal:#0f9dc4;
     --ink:#0b2340;
     --muted:#64748b;
     --line:#e6ebf2;
     --white:#ffffff;
     --surface:#fbfcfe;
-    --indigo:#3355b0;
-    --indigo-bright:#4a6cc2;
+    --indigo:#e3022b;
+    --indigo-bright:#ff3355;
     --danger:#c94f3f;
     --good:#1f9d6c;
   }
@@ -39,24 +41,22 @@
   /* ---------- persistent top bar ---------- */
   .topbar{
     display:flex;align-items:center;justify-content:space-between;
-    padding:20px 28px;background:var(--white);border-bottom:1px solid var(--line);
+    padding:18px 28px;background:var(--navy-solid);
     position:sticky;top:0;z-index:10;flex-wrap:wrap;gap:12px;
   }
   .brand{display:flex;align-items:center;gap:10px;}
-  .brand .mark{
-    width:32px;height:32px;border-radius:50%;border:1.5px solid var(--navy);
-    display:flex;align-items:center;justify-content:center;color:var(--navy);font-size:13px;flex-shrink:0;
-  }
-  .brand .b1{font-family:'Poppins',sans-serif;font-weight:600;font-size:14px;color:var(--navy);letter-spacing:.02em;}
-  .brand .b2{font-size:9.5px;color:var(--muted);letter-spacing:.14em;text-transform:uppercase;margin-top:1px;}
+  .brand .mark{width:34px;height:34px;flex-shrink:0;}
+  .brand .b1{font-family:'Poppins',sans-serif;font-weight:600;font-size:14px;color:#fff;letter-spacing:.04em;}
+  .brand .b2{font-size:9px;color:#8fa2d4;letter-spacing:.16em;text-transform:uppercase;margin-top:1px;}
   nav.tabs{display:flex;gap:26px;}
   nav.tabs button{
-    background:none;border:none;color:var(--muted);font-family:'Poppins',sans-serif;
+    background:none;border:none;color:#a9b7e0;font-family:'Poppins',sans-serif;
     font-size:13px;font-weight:500;padding:4px 0;cursor:pointer;border-bottom:2px solid transparent;
     transition:color .15s ease,border-color .15s ease;
   }
-  nav.tabs button:hover{color:var(--navy);}
-  nav.tabs button.active{color:var(--navy);border-color:var(--indigo);}
+  nav.tabs button:hover{color:#fff;}
+  nav.tabs button.active{color:#fff;border-color:var(--indigo);}
+  .teal-rule{height:5px;width:100%;background:linear-gradient(90deg,#0f9dc4,#12c2d6,#0f9dc4);}
 
   /* ---------- per-view hero band ---------- */
   .hero{
@@ -202,7 +202,11 @@
 
   <div class="topbar">
     <div class="brand">
-      <div class="mark">⚓</div>
+      <svg class="mark" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="20" cy="20" r="17.5" fill="none" stroke="#fff" stroke-width="1.4"/>
+        <path d="M20 6 L23 18 L34 20 L23 22 L20 34 L17 22 L6 20 L17 18 Z" fill="#fff" opacity=".92"/>
+        <circle cx="20" cy="20" r="3" fill="var(--indigo)"/>
+      </svg>
       <div>
         <div class="b1">BSF</div>
         <div class="b2">Balkans Sea Fair</div>
@@ -214,10 +218,11 @@
       <button data-view="dashboard">Dashboard</button>
     </nav>
   </div>
+  <div class="teal-rule"></div>
 
   <!-- GENERATE -->
   <section class="view active" id="view-generate">
-    <div class="hero">
+    <div class="hero hero--photo">
       <div class="eyebrow">Balkans Sea Fair 2026 · Marina Orikum</div>
       <h1>Issue tickets</h1>
       <p>Create a batch of ticket codes with QR images. Print the sheet and hand out or email the stubs before the fair — each one checks in exactly once at the door.</p>
@@ -252,7 +257,7 @@
 
   <!-- CHECK-IN -->
   <section class="view" id="view-checkin">
-    <div class="hero">
+    <div class="hero hero--teal">
       <div class="eyebrow">Boarding · Balkans Sea Fair 2026</div>
       <h1>Check-in</h1>
       <p>Scan a guest's ticket QR, or type the code below.</p>
