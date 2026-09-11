@@ -176,13 +176,19 @@ let stream = null, scanLoopId = null;
 // ---------- storage ----------
 async function loadState(){
   try{
-    const r = await window.storage.get(STORE_KEY, true);
-    if(r && r.value){ state = JSON.parse(r.value); }
-  }catch(e){ /* no data yet */ }
+    const r = await fetch('/api/ticket-state');
+    if(r.ok){ state = await r.json(); }
+  }catch(e){ /* network error — keep current in-memory state */ }
   return state;
 }
 async function saveState(){
-  await window.storage.set(STORE_KEY, JSON.stringify(state), true);
+  try{
+    await fetch('/api/ticket-state', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(state)
+    });
+  }catch(e){ /* save failed — data stays local until next successful save */ }
 }
 
 // ---------- tabs ----------
