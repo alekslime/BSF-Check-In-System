@@ -280,49 +280,139 @@ const ticketBodyOriginal = ticketBody.innerHTML;
 startCamBtn.addEventListener('click', startCamera);
 stopCamBtn.addEventListener('click', stopCamera);
 
+let barcodeDetector = null;
+let scanning = false;
+
 async function startCamera(){
   try{
-    stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment' } });
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      throw new Error('Camera API unavailable');
+    }
+
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        frameRate: { ideal: 30, max: 30 }
+      },
+      audio: false
+    });
+
     video.srcObject = stream;
     await video.play();
-    cameraHint.style.display='none';
+
+    // Ask supported mobile cameras for continuous autofocus.
+    const track = stream.getVideoTracks()[0];
+    if(track && track.getCapabilities){
+      const caps = track.getCapabilities();
+      if(caps.focusMode && caps.focusMode.includes('continuous')){
+        try{ await track.applyConstraints({advanced:[{focusMode:'continuous'}]}); }catch(_){}
+      }
+    }
+
+    cameraHint.style.display='block';
+    cameraHint.textContent='Scanning for QR code…';
     startCamBtn.style.display='none';
     stopCamBtn.style.display='inline-block';
+    scanning = true;
+
+    // Native QR detection is much faster/reliable on supported browsers.
+    barcodeDetector = null;
+    if('BarcodeDetector' in window){
+      try{
+        const formats = await BarcodeDetector.getSupportedFormats();
+        if(formats.includes('qr_code')) barcodeDetector = new BarcodeDetector({formats:['qr_code']});
+      }catch(_){}
+    }
+
     scanLoop();
   }catch(e){
+    console.error('Camera error:', e);
+    cameraHint.style.display='block';
     cameraHint.textContent = 'Camera unavailable — use the code field below instead.';
   }
 }
+
 function stopCamera(){
+  scanning = false;
   if(scanLoopId) cancelAnimationFrame(scanLoopId);
+  scanLoopId = null;
   if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+  video.srcObject = null;
   startCamBtn.style.display='inline-block';
   stopCamBtn.style.display='none';
   cameraHint.style.display='block';
   cameraHint.textContent = 'Tap "Start camera" to scan a ticket QR';
 }
+
 function scanLoop(){
-  if(!stream) return;
+  if(!stream || !scanning) return;
+
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  const MAX_DIM = 640; // cap processing resolution so detection stays fast on any camera
-  function tick(){
-    if(!stream) return;
-    if(video.readyState === video.HAVE_ENOUGH_DATA && video.videoWidth){
-      const scale = Math.min(1, MAX_DIM / Math.max(video.videoWidth, video.videoHeight));
-      canvas.width = Math.round(video.videoWidth * scale);
-      canvas.height = Math.round(video.videoHeight * scale);
-      ctx.drawImage(video,0,0,canvas.width,canvas.height);
-      const img = ctx.getImageData(0,0,canvas.width,canvas.height);
-      const code = jsQR(img.data, img.width, img.height);
-      if(code && code.data){
-        handleScan(code.data.trim());
-        return;
+  let busy = false;
+  let lastScan = 0;
+
+  async function tick(now){
+    if(!stream || !scanning) return;
+
+    // Don't run multiple async native detector calls at once.
+    if(!busy && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.videoWidth){
+      if(now - lastScan > 100){
+        lastScan = now;
+        busy = true;
+        try{
+          let found = null;
+
+          // 1) Native detector, when available. It understands the camera frame directly.
+          if(barcodeDetector){
+            const results = await barcodeDetector.detect(video);
+            if(results && results.length) found = results[0].rawValue;
+          }
+
+          // 2) jsQR fallback. Scan a large center crop first, then the full frame.
+          if(!found && typeof jsQR === 'function'){
+            const vw = video.videoWidth, vh = video.videoHeight;
+            const maxDim = 1000;
+            const scale = Math.min(1, maxDim / Math.max(vw, vh));
+            const cw = Math.round(vw * scale), ch = Math.round(vh * scale);
+            canvas.width = cw; canvas.height = ch;
+
+            const cropScale = 0.78;
+            const sw = Math.round(cw * cropScale);
+            const sh = Math.round(ch * cropScale);
+            const sx = Math.round((cw - sw) / 2);
+            const sy = Math.round((ch - sh) / 2);
+            ctx.drawImage(video, 0, 0, vw, vh, 0, 0, cw, ch);
+
+            // Center crop gets more QR pixels when the user follows the scan box.
+            let img = ctx.getImageData(sx, sy, sw, sh);
+            let code = jsQR(img.data, img.width, img.height, {inversionAttempts:'attemptBoth'});
+            if(!code){
+              img = ctx.getImageData(0, 0, cw, ch);
+              code = jsQR(img.data, img.width, img.height, {inversionAttempts:'attemptBoth'});
+            }
+            if(code && code.data) found = code.data;
+          }
+
+          if(found){
+            cameraHint.textContent='QR detected!';
+            scanning = false;
+            handleScan(String(found).trim());
+            return;
+          }
+        }catch(err){
+          console.debug('QR scan attempt failed:', err);
+        }finally{
+          busy = false;
+        }
       }
     }
+
     scanLoopId = requestAnimationFrame(tick);
   }
-  tick();
+  scanLoopId = requestAnimationFrame(tick);
 }
 
 document.getElementById('manualBtn').addEventListener('click', ()=>{
